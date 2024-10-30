@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Scanner with Flask</title>
+    <style>
+        /* Logo styles */
+        #logo {
+            font-size: 2em;
+            color: #fff;
+            margin: 20px;
+        }
+
+        #logo a {
+            text-decoration: none;
+            color: inherit;
+            font-weight: bold;
+        }
+
+        /* Header and nav styles */
+        #header {
+            width: 100%;
+            padding: 1em 0;
+            background-color: #005f6b; /* Dark Blue */
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+        }
+
+        #nav ul {
+            list-style: none;
+            display: flex;
+            gap: 1.5em;
+            padding: 0;
+            margin: 40px;
+        }
+
+        #nav ul li a {
+            font-size: 1.2em;
+            color: #fff;
+            text-decoration: none;
+            font-weight: bold;
+            padding: 0.5em;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Updated hover effect */
+        #nav ul li a:hover {
+            color: #f0f8ff; /* Light blue for hover effect */
+            background-color: #005f6b; /* Darker blue */
+            border-radius: 5px;
+        }
+
+        /* Hamburger icon styles */
+        #hamburger {
+            display: none;
+            font-size: 2em;
+            cursor: pointer;
+            color: white;
+        }
+
+        /* Responsive styles */
+        @media (max-width: 768px) {
+            #hamburger {
+                display: block;
+            }
+
+            #nav ul {
+                display: none;
+                flex-direction: column;
+                background-color: #005f6b; /* Dark Blue */
+                position: absolute;
+                top: 60px;
+                left: 0;
+                width: 100%;
+            }
+
+            #nav ul li {
+                text-align: center;
+                margin: 0.5em 0;
+            }
+
+            #nav ul.show {
+                display: flex;
+            }
+        }
+
+        /* General body styles */
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 60px;
+            padding-top: 80px;
+            background: #0095B6; /* Dark blue for background */
+            color: #fff;
+        }
+
+        /* Section styles */
+        section {
+            font-size: 1.2em;
+            padding: 40px;
+            margin-top: 20px;
+            background: #0095B6; /* Slightly lighter blue */
+            border-radius: 10px;
+            max-width: 800px;
+            margin: auto;
+            color: #fff;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+
+        /* Section hover effect */
+        section:hover {
+            background-color: #0095B6; /* Darker shade of blue */
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        h2 {
+            font-size: 2em;
+            margin-bottom: 0.5em;
+        }
+
+        /* QR Scanner styles */
+        #status-text {
+            font-size: 24px;
+            margin: 20px 0;
+        }
+
+        .status-success {
+            color: green;
+        }
+
+        .status-failure {
+            color: red;
+        }
+
+        video, canvas, img {
+            width: 100%;
+            max-width: 400px;
+            margin: 20px 0;
+            border: 2px solid black;
+            border-radius: 10px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        video:hover, canvas:hover, img:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            border: 2px solid #005f6b;
+        }
+
+        img {
+            display: none;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 18px;
+            cursor: pointer;
+            margin: 5px;
+            border: none;
+            background-color: #005f6b;
+            border-radius: 10px;
+            transition: background-color 0.3s ease;
+            color: #fff;
+        }
+
+        button:hover {
+            background: #0095b6;
+        }
+    </style>
+</head>
+<body>
+    <header id="header">
+        <h1 id="logo">
+            <a href="#">QR Sanitizer</a>
+        </h1>
+        <div id="hamburger" onclick="toggleMenu()">&#9776;</div>
+        <nav id="nav">
+            <ul>
+                <li><a href="#home">Home</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#how-it-works">How It Works</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Home Section -->
+    <section id="home">
+        <h2>Click to Scan and Send a QR Code</h2>
+        <p>QR Sanitizer is your trusted tool for safe and reliable QR scanning. In a world where QR codes are everywhere—from restaurant menus to event tickets—we provide a simple, secure solution for scanning and verifying QR content before you interact with it.</p>
+        <p>Designed to keep you safe from malicious QR codes, QR Sanitizer instantly scans, sanitizes, and provides details about the code you scan. Start your journey to safer QR scanning today!</p>
+        <p id="status-text">Status: Waiting for user action...</p>
+        <video id="video" autoplay></video>
+        <canvas id="canvas" style="display: none;"></canvas>
+        <img id="captured-img" alt="Captured Image"/>
+        <button onclick="startScan()">Start Camera</button>
+        <button onclick="captureImage()">Capture Image</button>
+    </section>
+
+    <!-- About Section -->
+    <section id="about">
+        <h2>About QR Sanitizer</h2>
+        <p>QR Sanitizer was developed to make technology safer and more accessible. With the surge in QR code usage, there is a growing concern around QR code security. We developed QR Sanitizer to address this need</p>
+        <p>Our mission is simple: to provide a powerful and easy-to-use tool for scanning and validating QR codes, ensuring users are protected from potential threats while enhancing their digital experience. By blending cutting-edge scanning technology with robust data security practices, QR Sanitizer makes it easy to scan safely, anywhere, anytime.</p>
+        <p><em>Your Security is our Priority</em>
+    </section>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works">
+        <h2>How It Works</h2>
+        <p><strong>Activate the Scanner:</strong> Tap the "Start Camera" button to launch your device’s camera. QR Sanitizer is optimized to focus on QR codes quickly, so you won’t waste time adjusting your device.</p>
+        <p><strong>Scan the QR Code:</strong> Simply align the QR code within the camera frame. Our intelligent detection system will capture and analyze the QR code instantly.</p>
+    </section>
+
+    <!-- Include EmailJS SDK -->
+    <script type="text/javascript" src="https://cdn.emailjs.com/dist/email.min.js"></script>
+    <script>
+        // Initialize EmailJS with your user ID (found in EmailJS dashboard)
+        (function(){
+        emailjs.init("satendrarajsingh05@gamil.com");  // Replace with your actual User ID
+        })();
+    </script>
+
+    <section class="contact" id="contact">
+        <div class="container">
+            <h1 class="sub-title">Contact <span>Me</span></h1>
+            <div class="contact-content">
+                <div class="column left">
+                    <h3>Get in touch</h3>
+                    <p>I would love to hear from you! Whether you have a question about our projects, services, or just want to connect, feel free to reach out.</p>
+                </div>
+                <div class="column right">
+                    <h3>Message Me</h3>
+                    <form id="contact-form" onsubmit="sendEmail(event)">
+                        <div class="fields">
+                            <div class="field name">
+                                <input type="text" id="name" placeholder="Name" required>
+                            </div>
+                            <div class="field email">
+                                <input type="email" id="email" placeholder="Email" required>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <input type="text" id="subject" placeholder="Subject" required>
+                        </div>
+                        <div class="field textarea">
+                            <textarea id="message" cols="30" rows="10" placeholder="Message..." required></textarea>
+                        </div>
+                        <div class="button">
+                            <button type="submit">Send Message</button>
+                        </div>
+                    </form>
+                    <p id="form-status" style="color: green;"></p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        function sendEmail(event) {
+            event.preventDefault();
+
+            // Gather form data
+            const name = document.getElementById("name").value;
+            const email = document.getElementById("email").value;
+            const subject = document.getElementById("subject").value;
+            const message = document.getElementById("message").value;
+
+            // Use EmailJS to send the email
+            emailjs.send("YOUR_SERVICE_ID", "YOUR_TEMPLATE_ID", {
+                from_name: name,
+                from_email: email,
+                subject: subject,
+                message: message
+            })
+            .then(response => {
+                document.getElementById("form-status").textContent = "Thank you! Your message has been sent.";
+                document.getElementById("contact-form").reset();
+            })
+            .catch(error => {
+                document.getElementById("form-status").textContent = "There was an error. Please try again.";
+                document.getElementById("form-status").style.color = 'red';
+                console.error("EmailJS error:", error);
+            });
+        }
+    
+
+    
+        // Function to toggle the navigation menu on smaller screens
+        function toggleMenu() {
+            const nav = document.querySelector('#nav ul');
+            nav.classList.toggle('show');
+        }
+
+        let videoStream = null;
+
+        async function startScan() {
+            const statusText = document.getElementById("status-text");
+            const video = document.getElementById("video");
+            const img = document.getElementById("captured-img");
+
+            img.style.display = 'none';
+            video.style.display = 'block';
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                statusText.textContent = "Camera access is not supported in this browser.";
+                return;
+            }
+
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                video.srcObject = videoStream;
+                statusText.textContent = "Camera access granted. Ready to capture.";
+            } catch (err) {
+                statusText.textContent = `Error accessing the camera: ${err.message}`;
+            }
+        }
+
+        function captureImage() {
+            const video = document.getElementById("video");
+            const canvas = document.getElementById("canvas");
+            const statusText = document.getElementById("status-text");
+
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const imageData = canvas.toDataURL('image/png');
+
+            if (videoStream) {
+                const tracks = videoStream.getTracks();
+                tracks.forEach(track => track.stop());
+                videoStream = null;
+            }
+
+            video.style.display = 'none';
+
+            sendImageToServer(imageData);
+        }
+
+        function sendImageToServer(imageData) {
+            const statusText = document.getElementById("status-text");
+
+            fetch('/upload_image', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ image: imageData })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    if (data.qr_code_detected) {
+                        statusText.textContent = "QR Code Detected!";
+                        statusText.className = 'status-success';
+                    } else {
+                        statusText.textContent = "No QR Code Detected!";
+                        statusText.className = 'status-failure';
+                    }
+                    displayCapturedImage(data.image_url);
+                } else {
+                    statusText.textContent = "Failed to process the image.";
+                    statusText.className = 'status-failure';
+                }
+            })
+            .catch(error => {
+                statusText.textContent = `Error: ${error}`;
+                statusText.className = 'status-failure';
+            });
+        }
+
+        function displayCapturedImage(imageUrl) {
+            const img = document.getElementById("captured-img");
+            img.src = imageUrl;
+            img.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
