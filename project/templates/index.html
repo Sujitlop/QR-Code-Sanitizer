@@ -1,148 +1,430 @@
+
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>QR Scanner with Flask</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin-top: 50px;
+      /* global settings */
+      *{
+        font-family: Verdana, Geneva, Tahoma, sans-serif;
+      }
+      /* Logo styles */
+      #logo img{
+        width: 70px;
+        height: 60px;
+        margin-left: 20px;
+        border-radius: 50%;
+      }
+
+      /* Header and nav styles */
+      #header {
+        width: 100%;
+        padding: 1em 0;
+        background-color: #005f6b; /* Dark Blue */
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1000;
+      }
+
+      #nav ul {
+        list-style: none;
+        display: flex;
+        gap: 1.5em;
+        padding: 0;
+        margin: 40px;
+      }
+
+      #nav ul li a {
+        font-size: 1.2em;
+        color: #fff;
+        text-decoration: none;
+        font-weight: bold;
+        padding: 0.5em;
+        transition: background-color 0.3s, color 0.3s;
+      }
+
+      /* Updated hover effect */
+      #nav ul li a:hover {
+        color: black; /* Light blue for hover effect */
+        background-color: white; /* Darker blue */
+        border-radius: 10px;
+        transition: background-color 0.3s, color 0.5s;      }
+
+      /* Hamburger icon styles */
+      #hamburger {
+        display: none;
+        font-size: 2em;
+        cursor: pointer;
+        color: white;
+      }
+
+      /* Responsive styles */
+      @media (max-width: 768px) {
+        #hamburger {
+          display: block;
         }
-        #status-text {
-            font-size: 24px;
-            margin: 20px 0;
+
+        #nav ul {
+          display: none;
+          flex-direction: column;
+          background-color: #005f6b; /* Dark Blue */
+          position: absolute;
+          top: 60px;
+          left: 0;
+          width: 100%;
         }
-        .status-success {
-            color: green;
+
+        #nav ul li {
+          text-align: center;
+          margin: 0.5em 0;
         }
-        .status-failure {
-            color: red;
+
+        #nav ul.show {
+          display: flex;
         }
-        button {
-            padding: 10px 20px;
-            font-size: 18px;
-            cursor: pointer;
-        }
-        video, canvas, img {
-            margin-top: 20px;
-            width: 100%;
-            max-width: 400px;
-            border: 2px solid black;
-        }
-        img {
-            display: none;
-        }
+      }
+
+      /* General body styles */
+
+      body {
+        text-align: center;
+        margin: 60px;
+        padding-top: 80px;
+        background-color: #33ff6621;
+      }
+
+      /* Section styles */
+      section {
+        font-size: 1.2em;
+        padding: 40px;
+        margin-top: 20px;
+        border-radius: 10px;
+        max-width: 800px;
+        margin: auto;
+      }
+
+      h2 {
+        font-size: 2em;
+        margin-bottom: 0.5em;
+      }
+
+      /* Home styles */
+      #home {
+      }
+      #home #status-text {
+        font-size: 24px;
+        margin: 20px 0;
+      }
+
+      #home .status-success {
+        color: green;
+      }
+
+      #home .status-failure {
+        color: red;
+      }
+
+      #home video,
+      canvas,
+      img {
+        width: 100%;
+        max-width: 400px;
+        margin: 20px 0;
+        border: 2px solid black;
+        border-radius: 10px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+
+      #home video:hover,
+      canvas:hover,
+      img:hover {
+        transform: scale(1.05);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        cursor: pointer;
+        border: 2px solid #005f6b;
+      }
+
+      #home img {
+        display: none;
+      }
+
+      button {
+        padding: 12px 24px;
+        font-size: 18px;
+        cursor: pointer;
+        margin: 5px;
+        border: none;
+        background-color: #005f6b;
+        border-radius: 10px;
+        transition: background-color 0.3s ease;
+        color: #fff;
+      }
+
+      button:hover {
+        background: #0095b6;
+      }
+
+      /* about styles */
+      #about img{
+        width: 600px;
+      }
+      
+      /*how it works styles */
+      #how-it-works img{
+
+      }
+      /* Contact styles */
+      #contact {
+        padding: 50px;
+        text-align: center;
+      }
+      .contact-btn {
+        background-color: #005f6b;
+        color: white;
+        padding: 10px 20px;
+        text-decoration: none;
+        border-radius: 5px;
+      }
+      #socials a {
+        text-decoration: none;
+        color: blue;
+      }
+      footer {
+        background-color: #005f6b;
+        padding: 20px;
+        text-align: center;
+        color: #fff;
+        margin-top: auto; /* Push footer to the bottom */
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
+    <header id="header">
+      <h1 id="logo">
+        <img src="qr-logo.png"/>
+      </h1>
+      <div id="hamburger" onclick="toggleMenu()">&#9776;</div>
+      <nav id="nav">
+        <ul>
+          <li><a href="#home">Home</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#how-it-works">How It Works</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </nav>
+    </header>
 
-    <h1>Click to Scan and Send a QR Code</h1>
+    <!-- Home Section -->
+    <section id="home">
+      <h2>Click to Scan and Send a QR Code</h2>
+      <p>
+        QR Sanitizer is your trusted tool for safe and reliable QR scanning. In
+        a world where QR codes are everywhere—from restaurant menus to event
+        tickets—we provide a simple, secure solution for scanning and verifying
+        QR content before you interact with it.
+      </p>
+      <p>
+        Designed to keep you safe from malicious QR codes, QR Sanitizer
+        instantly scans, sanitizes, and provides details about the code you
+        scan. Start your journey to safer QR scanning today!
+      </p>
+      <p id="status-text">Status: Waiting for user action...</p>
+      <video id="video" autoplay></video>
+      <canvas id="canvas" style="display: none"></canvas>
+      <img id="captured-img" alt="Captured Image" />
+      <button onclick="startScan()">Start Camera</button>
+      <button onclick="captureImage()">Capture Image</button>
+    </section>
 
-    <p id="status-text">Status: Waiting for user action...</p>
+    <!-- About Section -->
+    <section id="about">
+      <h2>About QR Sanitizer</h2>
+      <div >
+        <p>
+          QR Sanitizer was developed to make technology safer and more accessible.
+          With the surge in QR code usage, there is a growing concern around QR
+          code security. We developed QR Sanitizer to address this need
+        </p>
+        <p>
+          Our mission is simple: to provide a powerful and easy-to-use tool for
+          scanning and validating QR codes, ensuring users are protected from
+          potential threats while enhancing their digital experience. By blending
+          cutting-edge scanning technology with robust data security practices, QR
+          Sanitizer makes it easy to scan safely, anywhere, anytime.
+        </p>
+        <img src="c.jpg" alt="QR Code Usage in Daily Life"/>
+        <p><em>Your Security is our Priority</em></p>
+      </div>
+    </section>
 
-    <button onclick="startScan()">Start Camera</button>
-    <button onclick="captureImage()">Capture Image</button>
+    <!-- How It Works Section -->
+    <section id="how-it-works">
+      <h2>How It Works</h2>
+      <img src="d.jpg" alt="QR Code Usage in Daily Life"/>
+      <p>
+        <strong>Activate the Scanner:</strong> Tap the "Start Camera" button to
+        launch your device’s camera. QR Sanitizer is optimized to focus on QR
+        codes quickly, so you won’t waste time adjusting your device.
+      </p>
+      <p>
+        <strong>Scan the QR Code:</strong> Simply align the QR code within the
+        camera frame. Our intelligent detection system will capture and analyze
+        the QR code instantly.
+      </p>
+    </section>
 
-    <video id="video" autoplay></video>
-    <canvas id="canvas" style="display: none;"></canvas>
-    <img id="captured-img" alt="Captured Image" />
+    <!-- Contact Section -->
+    <section id="contact">
+      <h2>Contact Us</h2>
+      <p>Have questions? We're here to help!</p>
+      <a href="mailto:support@qrsanitizeteam.com" class="contact-btn"
+        >Email Us</a
+      >
+      <p id="socials">
+        Connect with us on <a href="#">Facebook</a> | <a href="#">Twitter</a> |
+        <a href="#">LinkedIn</a>
+      </p>
+    </section>
+
+    <footer>
+      <p>
+        &copy; 2024 QR Sanitizer | Designed to keep your QR scanning experience
+        safe and secure.
+      </p>
+    </footer>
 
     <script>
-        let videoStream = null;
+      function sendEmail(event) {
+        event.preventDefault();
 
-        async function startScan() {
-            const statusText = document.getElementById("status-text");
-            const video = document.getElementById("video");
-            const img = document.getElementById("captured-img");
+        // Gather form data
+        const name = document.getElementById("name").value;
+        const email = document.getElementById("email").value;
+        const subject = document.getElementById("subject").value;
+        const message = document.getElementById("message").value;
 
-            // Hide the image and show the video again
-            img.style.display = 'none';
-            video.style.display = 'block';
+        // Use EmailJS to send the email
+        emailjs
+          .send("YOUR_SERVICE_ID", "YOUR_TEMPLATE_ID", {
+            from_name: name,
+            from_email: email,
+            subject: subject,
+            message: message,
+          })
+          .then((response) => {
+            document.getElementById("form-status").textContent =
+              "Thank you! Your message has been sent.";
+            document.getElementById("contact-form").reset();
+          })
+          .catch((error) => {
+            document.getElementById("form-status").textContent =
+              "There was an error. Please try again.";
+            document.getElementById("form-status").style.color = "red";
+            console.error("EmailJS error:", error);
+          });
+      }
 
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                statusText.textContent = "Camera access is not supported in this browser.";
-                return;
+      // Function to toggle the navigation menu on smaller screens
+      function toggleMenu() {
+        const nav = document.querySelector("#nav ul");
+        nav.classList.toggle("show");
+      }
+
+      let videoStream = null;
+
+      async function startScan() {
+        const statusText = document.getElementById("status-text");
+        const video = document.getElementById("video");
+        const img = document.getElementById("captured-img");
+
+        img.style.display = "none";
+        video.style.display = "block";
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          statusText.textContent =
+            "Camera access is not supported in this browser.";
+          return;
+        }
+
+        try {
+          videoStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" },
+          });
+          video.srcObject = videoStream;
+          statusText.textContent = "Camera access granted. Ready to capture.";
+        } catch (err) {
+          statusText.textContent = `Error accessing the camera: ${err.message}`;
+        }
+      }
+
+      function captureImage() {
+        const video = document.getElementById("video");
+        const canvas = document.getElementById("canvas");
+        const statusText = document.getElementById("status-text");
+
+        const context = canvas.getContext("2d");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const imageData = canvas.toDataURL("image/png");
+
+        if (videoStream) {
+          const tracks = videoStream.getTracks();
+          tracks.forEach((track) => track.stop());
+          videoStream = null;
+        }
+
+        video.style.display = "none";
+
+        sendImageToServer(imageData);
+      }
+
+      function sendImageToServer(imageData) {
+        const statusText = document.getElementById("status-text");
+
+        fetch("/upload_image", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ image: imageData }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.status === "success") {
+              if (data.qr_code_detected) {
+                statusText.textContent = "QR Code Detected!";
+                statusText.className = "status-success";
+              } else {
+                statusText.textContent = "No QR Code Detected!";
+                statusText.className = "status-failure";
+              }
+              displayCapturedImage(data.image_url);
+            } else {
+              statusText.textContent = "Failed to process the image.";
+              statusText.className = "status-failure";
             }
+          })
+          .catch((error) => {
+            statusText.textContent = `Error: ${error}`;
+            statusText.className = "status-failure";
+          });
+      }
 
-            try {
-                videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-                video.srcObject = videoStream;
-                statusText.textContent = "Camera access granted. Ready to capture.";
-            } catch (err) {
-                statusText.textContent = `Error accessing the camera: ${err.message}`;
-            }
-        }
-
-        function captureImage() {
-            const video = document.getElementById("video");
-            const canvas = document.getElementById("canvas");
-            const statusText = document.getElementById("status-text");
-
-            const context = canvas.getContext('2d');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-
-            // Draw the current frame from the video onto the canvas
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // Convert the canvas image to a data URL (base64 format)
-            const imageData = canvas.toDataURL('image/png');
-
-            // Stop the video stream and hide the video element
-            if (videoStream) {
-                const tracks = videoStream.getTracks();
-                tracks.forEach(track => track.stop());
-                videoStream = null;
-            }
-
-            video.style.display = 'none';
-
-            // Send the image data to the Flask server
-            sendImageToServer(imageData);
-        }
-
-        function sendImageToServer(imageData) {
-            const statusText = document.getElementById("status-text");
-
-            fetch('/upload_image', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ image: imageData }) // Send the image as base64
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    if (data.qr_code_detected) {
-                        // Green text for QR code detected
-                        statusText.textContent = "QR Code Detected!";
-                        statusText.className = 'status-success';
-                    } else {
-                        // Red text for no QR code detected
-                        statusText.textContent = "No QR Code Detected!";
-                        statusText.className = 'status-failure';
-                    }
-                    displayCapturedImage(data.image_url);
-                } else {
-                    statusText.textContent = "Failed to process the image.";
-                    statusText.className = 'status-failure';
-                }
-            })
-            .catch(error => {
-                statusText.textContent = `Error: ${error}`;
-                statusText.className = 'status-failure';
-            });
-        }
-
-        function displayCapturedImage(imageUrl) {
-            const img = document.getElementById("captured-img");
-            img.src = imageUrl;  // Set the image source to the saved image
-            img.style.display = 'block';  // Show the image
-        }
+      function displayCapturedImage(imageUrl) {
+        const img = document.getElementById("captured-img");
+        img.src = imageUrl;
+        img.style.display = "block";
+      }
     </script>
-
-</body>
+  </body>
 </html>
