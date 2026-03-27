@@ -131,6 +131,25 @@
         color: red;
       }
 
+      #safety-text {
+        font-size: 20px;
+        margin: 10px 0;
+        font-weight: bold;
+      }
+
+      #decoded-text {
+        word-break: break-word;
+        margin: 6px auto 10px;
+        max-width: 700px;
+      }
+
+      #risk-reasons {
+        list-style: disc;
+        text-align: left;
+        max-width: 700px;
+        margin: 6px auto 20px;
+      }
+
       #home video,
       canvas,
       img {
@@ -236,6 +255,9 @@
         scan. Start your journey to safer QR scanning today!
       </p>
       <p id="status-text">Status: Waiting for user action...</p>
+      <p id="safety-text"></p>
+      <p id="decoded-text"></p>
+      <ul id="risk-reasons"></ul>
       <video id="video" autoplay></video>
       <canvas id="canvas" style="display: none"></canvas>
       <img id="captured-img" alt="Captured Image" />
@@ -337,19 +359,67 @@
         nav.classList.toggle("show");
       }
 
+      const API_BASE = window.location.port === "5000" ? "" : "http://127.0.0.1:5000";
+
+      function setStatus(message, type) {
+        const statusText = document.getElementById("status-text");
+        statusText.textContent = message;
+        statusText.className = type || "";
+      }
+
+      function clearSafetyDetails() {
+        document.getElementById("safety-text").textContent = "";
+        document.getElementById("decoded-text").textContent = "";
+        document.getElementById("risk-reasons").innerHTML = "";
+      }
+
+      function renderSafetyDetails(safety, decodedText) {
+        const safetyText = document.getElementById("safety-text");
+        const decodedNode = document.getElementById("decoded-text");
+        const reasonsNode = document.getElementById("risk-reasons");
+
+        reasonsNode.innerHTML = "";
+
+        if (!safety) {
+          safetyText.textContent = "Safety Verdict: Unable to assess";
+          safetyText.style.color = "#b8860b";
+          return;
+        }
+
+        const verdict = safety.verdict === "malicious"
+          ? "MALICIOUS"
+          : (safety.verdict === "undetermined" ? "UNDETERMINED" : "SAFE");
+        safetyText.textContent = `Safety Verdict: ${verdict} (risk score: ${safety.risk_score})`;
+        safetyText.style.color =
+          safety.verdict === "malicious"
+            ? "#c1121f"
+            : (safety.verdict === "undetermined" ? "#b8860b" : "#1f7a1f");
+
+        if (decodedText) {
+          decodedNode.textContent = `Decoded payload: ${decodedText}`;
+        }
+
+        if (Array.isArray(safety.reasons)) {
+          safety.reasons.forEach((reason) => {
+            const li = document.createElement("li");
+            li.textContent = reason;
+            reasonsNode.appendChild(li);
+          });
+        }
+      }
+
       let videoStream = null;
 
       async function startScan() {
-        const statusText = document.getElementById("status-text");
         const video = document.getElementById("video");
         const img = document.getElementById("captured-img");
 
         img.style.display = "none";
         video.style.display = "block";
+        clearSafetyDetails();
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          statusText.textContent =
-            "Camera access is not supported in this browser.";
+          setStatus("Camera access is not supported in this browser.", "status-failure");
           return;
         }
 
@@ -358,16 +428,20 @@
             video: { facingMode: "environment" },
           });
           video.srcObject = videoStream;
-          statusText.textContent = "Camera access granted. Ready to capture.";
+          setStatus("Camera access granted. Ready to capture.", "status-success");
         } catch (err) {
-          statusText.textContent = `Error accessing the camera: ${err.message}`;
+          setStatus(`Error accessing the camera: ${err.message}`, "status-failure");
         }
       }
 
       function captureImage() {
         const video = document.getElementById("video");
         const canvas = document.getElementById("canvas");
-        const statusText = document.getElementById("status-text");
+
+        if (!videoStream || !video.videoWidth || !video.videoHeight) {
+          setStatus("Start camera first, allow permission, then capture.", "status-failure");
+          return;
+        }
 
         const context = canvas.getContext("2d");
         canvas.width = video.videoWidth;
@@ -389,42 +463,79 @@
       }
 
       function sendImageToServer(imageData) {
-        const statusText = document.getElementById("status-text");
+        setStatus("Processing image...", "");
+        clearSafetyDetails();
 
-        fetch("/upload_image", {
+        fetch(`${API_BASE}/upload_image`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ image: imageData }),
         })
-          .then((response) => response.json())
+          .then(async (response) => {
+            const raw = await response.text();
+            let data = null;
+
+            if (raw) {
+              try {
+                data = JSON.parse(raw);
+              } catch (e) {
+                throw new Error("Server returned an invalid response.");
+              }
+            }
+
+            if (!response.ok) {
+              const message = data && data.message ? data.message : `Request failed with status ${response.status}.`;
+              throw new Error(message);
+            }
+
+            if (!data) {
+              throw new Error("Server returned an empty response.");
+            }
+
+            return data;
+          })
           .then((data) => {
             if (data.status === "success") {
               if (data.qr_code_detected) {
-                statusText.textContent = "QR Code Detected!";
-                statusText.className = "status-success";
+                if (data.safety && data.safety.verdict === "malicious") {
+                  setStatus("QR Code Detected. Potentially malicious.", "status-failure");
+                } else if (data.safety && data.safety.verdict === "undetermined") {
+                  setStatus("QR Code Detected. Safety undetermined.", "");
+                } else {
+                  setStatus("QR Code Detected. Looks safe.", "status-success");
+                }
+                renderSafetyDetails(data.safety, data.decoded_text);
               } else {
-                statusText.textContent = "No QR Code Detected!";
-                statusText.className = "status-failure";
+                setStatus("No QR Code Detected!", "status-failure");
+                clearSafetyDetails();
               }
               displayCapturedImage(data.image_url);
             } else {
-              statusText.textContent = "Failed to process the image.";
-              statusText.className = "status-failure";
+              setStatus(data.message || "Failed to process the image.", "status-failure");
+              clearSafetyDetails();
             }
           })
           .catch((error) => {
-            statusText.textContent = `Error: ${error}`;
-            statusText.className = "status-failure";
+            setStatus(`Error: ${error}`, "status-failure");
+            clearSafetyDetails();
           });
       }
 
       function displayCapturedImage(imageUrl) {
         const img = document.getElementById("captured-img");
-        img.src = imageUrl;
+        img.onerror = () => {
+          setStatus("Image was processed but could not be displayed.", "status-failure");
+        };
+        img.src = imageUrl.startsWith("http") ? imageUrl : `${API_BASE}${imageUrl}`;
         img.style.display = "block";
       }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const apiTarget = API_BASE || "same origin";
+        setStatus(`Ready. API target: ${apiTarget}`, "");
+      });
     </script>
   </body>
 </html>
